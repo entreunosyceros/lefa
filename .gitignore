@@ -1,0 +1,48 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+
+# Tests y herramientas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Entornos e IDE
+.env
+.env.*
+*.local
+.idea/
+.vscode/
+*.swp
+*~
+
+# SO
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Copias de seguridad y datos locales (si se generan en el proyecto)
+backup_*.zip
+*.db
+*.sqlite3
+
+# Logs
+*.log
