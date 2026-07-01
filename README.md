@@ -1,4 +1,7 @@
 # LEFA — Local & Eficiente Facturación para Autónomos
+<p align="center">
+<img width="1200" height="655" alt="logo" src="https://github.com/user-attachments/assets/d3e52c55-7abb-4cc4-bb1f-cf7640292f74" />
+</p>
 
 Aplicación de escritorio para facturación de autónomos con control total local. Compatible con **Linux** y **Windows**.
 
@@ -67,6 +70,9 @@ python main.py
 Al primer arranque se crean **3 clientes de ejemplo** si la base de datos está vacía.
 
 ## Estructura del proyecto
+<p align="center">
+<img width="1916" height="1048" alt="2026-07-01_13-19" src="https://github.com/user-attachments/assets/7f270575-930e-4f23-bdf5-6b613e9d4a2d" />
+</p>
 
 ```
 LEFA/
