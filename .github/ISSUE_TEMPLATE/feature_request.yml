@@ -1,0 +1,63 @@
+name: Solicitud de mejora
+description: Proponer una nueva función o mejora en LEFA
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe el problema o la necesidad del autónomo antes que la solución concreta.
+        Recuerda que LEFA busca ser simple y local, no un ERP completo.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Facturación (emisión, series, rectificativas)
+        - Presupuestos
+        - Clientes
+        - PDF / plantillas / logo
+        - VeriFactu
+        - Facturae / FACe
+        - Correo / SMTP
+        - Listados / búsqueda / filtros
+        - Preferencias / numeración
+        - Copia de seguridad
+        - Interfaz / UX (Inicio, flujos)
+        - Documentación / Ayuda rápida
+        - Arranque / instalación
+        - Otro
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema o necesidad quieres resolver?
+      placeholder: "Ej.: Tras emitir una factura rectificativa, necesito ver en el listado a qué factura original corresponde sin abrir el PDF."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solución propuesta (opcional)
+      description: Cómo imaginas que debería funcionar
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Alcance
+      options:
+        - label: Estoy dispuesto/a a contribuir con un PR si la propuesta encaja
+          required: false

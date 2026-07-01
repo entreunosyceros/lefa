@@ -79,6 +79,7 @@ LEFA/
 ├── main.py                 # Punto de entrada directo (con venv activo)
 ├── run_app.py              # Arranque con gestión automática del entorno
 ├── requirements.txt
+├── LICENSE                 # GNU GPL v3.0
 ├── img/
 │   └── logo.png            # Icono de ventana, bandeja y diálogo "Sobre"
 └── lefa/
@@ -345,3 +346,7 @@ En Windows, copie la carpeta `%USERPROFILE%\.lefa` a un USB o disco externo.
 ## Repositorio
 
 [https://github.com/entreunosyceros/lefa](https://github.com/entreunosyceros/lefa)
+
+## Licencia
+
+[GNU General Public License v3.0](LICENSE)
