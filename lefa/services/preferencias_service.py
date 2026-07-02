@@ -45,6 +45,7 @@ class Preferencias:
     digitos_secuencia: int = 4
     dias_vencimiento: int = 30
     ruta_logotipo: str = ""
+    pie_factura: str = ""
     ultimo_cliente_id: int | None = None
     facturae_forma_pago: str = "04"  # Transferencia bancaria (Facturae)
     mostrar_bienvenida: bool = True
@@ -87,6 +88,7 @@ class PreferenciasService:
             digitos_secuencia=int(datos.get("digitos_secuencia", 4)),
             dias_vencimiento=int(datos.get("dias_vencimiento", 30)),
             ruta_logotipo=datos.get("ruta_logotipo", ""),
+            pie_factura=datos.get("pie_factura", ""),
             ultimo_cliente_id=int(ultimo) if ultimo is not None else None,
             facturae_forma_pago=datos.get("facturae_forma_pago", "04"),
             mostrar_bienvenida=bool(datos.get("mostrar_bienvenida", True)),

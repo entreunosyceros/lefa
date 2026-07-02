@@ -113,7 +113,7 @@ LEFA/
 | **Nueva Factura** | Cliente (se recuerda el último usado), **serie**, **vencimiento**, líneas con plantillas, IVA/IRPF. Botones *Guardar*, *Emitir* y *Enviar por email*. |
 | **Nuevo Presupuesto** | Crear y emitir presupuestos comerciales (sin validez fiscal). |
 | **Listado presupuestos** | *Aceptar*, *Convertir en factura*, *Rechazar*. |
-| **Listado**       | Estado, **envío**, **vencimiento**. **Duplicar**, **Rectificar**, *Marcar como Cobrada*. |
+| **Listado**       | Estado, **envío**, **vencimiento**. **Guardar PDF…** (una o varias), **Abrir carpeta**, **Duplicar**, **Rectificar**, *Marcar como Cobrada*. |
 | **Clientes**      | **Buscar** por nombre, NIF o email. Al editar: historial de facturas y total facturado. |
 
 ### Menú superior
@@ -174,12 +174,12 @@ Arquitectura en `lefa/verifactu/`:
 |--------|---------|
 | `hash.py` | Hash SHA-256 encadenado (cadena única para todas las series) |
 | `registro.py` | Registro inmutable al emitir (JSON local) |
-| `qr.py` | URL de cotejo AEAT (NIF, número de factura, fecha e importe) y generación del QR tributario |
+| `qr.py` | URL de cotejo AEAT, leyenda legal del QR y generación del PNG (35 mm en PDF) |
 | `export.py` | Exportación ZIP de registros |
 
-Al **emitir**, LEFA genera el registro encadenado, guarda el hash en la factura e imprime el **QR tributario** en el PDF. El módulo `qr.py` construye la URL con el **formato oficial de la AEAT** (parámetros `nif`, `numserie`, fecha en `DD-MM-AAAA` e importe con punto decimal). **Generación de código QR conforme a las especificaciones de la resolución de la AEAT.** Modalidad actual: *No-VeriFactu* (cotejo sin envío automático a AEAT). El envío oficial se podrá activar sin reescribir la aplicación.
+Al **emitir**, LEFA genera el registro encadenado, guarda el hash en la factura e imprime el **QR tributario** en el PDF (35×35 mm) con la leyenda obligatoria: *SISTEMA INFORMÁTICO NO VERIFICADO* (modalidad actual) o *VERI*FACTU* cuando se active VeriFactu. El módulo `qr.py` construye la URL con el **formato oficial de la AEAT** (parámetros `nif`, `numserie`, fecha en `DD-MM-AAAA`, importe con punto decimal y, en VeriFactu, `hash` con la huella SHA-256 completa en minúsculas).
 
-**Cadena de hashes:** el hilo VeriFactu es **único e ininterrumpido** para todo el programa. Una factura rectificativa (serie `RECT`) enlaza con la **última factura emitida cronológicamente** en el sistema (p. ej. una `FACT`), no con la rectificativa anterior. El orden se determina por fecha de emisión e ID, sin filtrar por serie.
+**Cadena de hashes:** el hilo VeriFactu es **único e ininterrumpido** para todo el programa. Una factura rectificativa (serie `RECT`) enlaza con la **última factura emitida cronológicamente** en el sistema (p. ej. una `FACT`), no con la rectificativa anterior. El orden se determina por fecha de emisión e ID, sin filtrar por serie. La emisión usa una transacción SQLite `BEGIN IMMEDIATE` que asigna número correlativo y hash encadenado en el mismo commit.
 
 **Herramientas → Exportar registros VeriFactu…** empaqueta todos los registros para auditoría.
 
@@ -217,10 +217,11 @@ En **Herramientas → Preferencias…** puede configurar valores por defecto que
 | Vencimiento por defecto | Días desde la emisión (p. ej. 30) |
 | Empresa emisora | Nombre, NIF, dirección, teléfono, email, **IBAN** (necesario para Facturae/FACe) |
 | Forma de pago Facturae | Código por defecto (`04` = transferencia bancaria) |
-| Logotipo | Aparece en el PDF y como icono de la aplicación |
+| Logotipo (PDF) | Aparece en el PDF (no cambia el icono de la aplicación) |
 | Formato de número | `FACT-2026-0001`, `2026-001`, `0001/2026`, `WEB-001`, etc. |
 | Series de facturación | Varias series con correlativo independiente (`FACT, WEB, MANT`) |
 | Carpeta PDFs | Dónde se guardan los PDF generados |
+| Pie de factura (PDF) | Texto opcional al final de la factura (varias líneas) |
 
 ## Plantillas de líneas
 

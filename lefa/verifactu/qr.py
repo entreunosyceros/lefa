@@ -1,5 +1,8 @@
 """
 Código QR tributario para facturas (VeriFactu / No-VeriFactu).
+
+Especificaciones AEAT (Orden HAC/1177/2024): tamaño impreso 30–40 mm,
+leyenda obligatoria junto al QR y URL de cotejo según modalidad.
 """
 
 from __future__ import annotations
@@ -10,8 +13,35 @@ from urllib.parse import quote
 
 from lefa.config import VERIFACTU_MODO_VERIFACTU, VERIFACTU_URL_BASE
 
-# Tamaño recomendado AEAT: 30–40 mm ≈ 85–113 px a 72 dpi; usamos 100 px
+# PNG intermedio: resolución suficiente para impresión (≈85–113 px a 72 dpi)
 QR_PX = 100
+
+# Tamaño físico en el PDF (FPDF usa milímetros, no píxeles)
+QR_MM = 35.0
+
+# Rótulos legales obligatorios junto al código QR (RD facturación / SIF)
+TEXTO_LEGAL_VERIFACTU = "VERI*FACTU"
+TEXTO_LEGAL_NO_VERIFACTU = "SISTEMA INFORMÁTICO NO VERIFICADO"
+
+
+def texto_legal_qr(modo_verifactu: bool | None = None) -> str:
+    """Leyenda que debe figurar al lado o debajo del QR en la factura impresa."""
+    if modo_verifactu is None:
+        modo_verifactu = VERIFACTU_MODO_VERIFACTU
+    return TEXTO_LEGAL_VERIFACTU if modo_verifactu else TEXTO_LEGAL_NO_VERIFACTU
+
+
+def hash_para_url(hash_registro: str | None) -> str:
+    """
+    Normaliza el hash SHA-256 para el parámetro ``hash`` de la URL AEAT.
+
+    Según las especificaciones técnicas del código QR (v0.5.x), en modalidad
+    VERI*FACTU se incluye la huella completa de 64 caracteres hexadecimales
+    en minúsculas. Si la AEAT publicara otro tramo, centralizar el ajuste aquí.
+    """
+    if not hash_registro:
+        return ""
+    return hash_registro.strip().lower()
 
 
 def url_verificacion(
@@ -26,7 +56,7 @@ def url_verificacion(
     Construye la URL de cotejo en la sede electrónica de la AEAT.
 
     Parámetros: nif, numserie, fecha (DD-MM-AAAA), importe (punto decimal).
-    En modalidad VERI*FACTU se añade el hash del registro.
+    En modalidad VERI*FACTU se añade el hash del registro (64 hex en minúsculas).
     """
     if modo_verifactu is None:
         modo_verifactu = VERIFACTU_MODO_VERIFACTU
@@ -42,8 +72,9 @@ def url_verificacion(
         f"fecha={fecha}",
         f"importe={importe}",
     ]
-    if modo_verifactu and hash_registro:
-        params.append(f"hash={hash_registro}")
+    hash_url = hash_para_url(hash_registro)
+    if modo_verifactu and hash_url:
+        params.append(f"hash={quote(hash_url)}")
 
     return f"{base}/wlpl/TIKE-CONT/{endpoint}?{'&'.join(params)}"
 

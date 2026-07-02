@@ -140,7 +140,7 @@ class EmailService:
     @staticmethod
     def _enviar_correo_prueba(servidor, config, destino: str) -> None:
         prueba = EmailMessage()
-        prueba["Subject"] = "LEFA — Correo de prueba"
+        prueba["Subject"] = "LEFA - Correo de prueba"
         prueba["From"] = formataddr(
             (config.nombre_remitente or "LEFA", config.remitente or config.usuario)
         )

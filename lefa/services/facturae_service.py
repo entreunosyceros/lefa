@@ -102,7 +102,7 @@ class FacturaeService:
         buyer_legal = ET.SubElement(buyer, f"{{{NS}}}LegalEntity")
         FacturaeService._sub(buyer_legal, "CorporateName", cliente.razon_social)
         addr_b = ET.SubElement(buyer_legal, f"{{{NS}}}AddressInSpain")
-        FacturaeService._sub(addr_b, "Address", cliente.direccion or "—")
+        FacturaeService._sub(addr_b, "Address", cliente.direccion or "-")
         FacturaeService._añadir_centros_dir3(buyer_legal, cliente)
 
         items = ET.SubElement(invoice, f"{{{NS}}}Items")

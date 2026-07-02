@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
-from lefa.database import session_scope
+from lefa.database import session_scope, session_scope_immediate
 from lefa.models import EstadoFactura, Factura, LineaFactura
 from lefa.services.numeracion_service import NumeracionService
 from lefa.services.preferencias_service import PreferenciasService
@@ -208,13 +208,16 @@ class FacturaService:
     @staticmethod
     def emitir_factura(factura_id: int) -> Factura:
         """
-        Transacción atómica de emisión:
-        1. Valida que sea borrador.
-        2. Asigna número según formato configurado.
-        3. Fija fecha de emisión al día actual.
-        4. Cambia estado a Emitida.
+        Transacción atómica de emisión (SQLite ``BEGIN IMMEDIATE``):
+
+        1. Valida que sea borrador con líneas.
+        2. Asigna número correlativo (p. ej. FACT-2026-0044).
+        3. Lee el hash de la última factura emitida y calcula el encadenado.
+        4. Fija fecha, estado emitida y hashes en la misma transacción.
+        5. Commit; luego persiste el JSON VeriFactu en disco.
         """
-        with session_scope() as session:
+        registro_vf = None
+        with session_scope_immediate() as session:
             factura = session.get(Factura, factura_id)
             if factura is None:
                 raise ValueError(f"Factura {factura_id} no encontrada.")
@@ -251,7 +254,7 @@ class FacturaService:
             factura.fecha_envio = None
             factura.destinatario = None
 
-            RegistroVerifactuService.crear_registro_emision(session, factura)
+            registro_vf = RegistroVerifactuService.crear_registro_emision(session, factura)
 
             session.flush()
             session.refresh(factura)
@@ -259,7 +262,11 @@ class FacturaService:
             _ = factura.lineas
             session.expunge(factura)
             PreferenciasService.guardar_ultimo_cliente(factura.cliente_id)
-            return factura
+
+        if registro_vf is not None:
+            RegistroVerifactuService.guardar_json(registro_vf)
+
+        return factura
 
     @staticmethod
     def marcar_enviada(factura_id: int, destinatario: str) -> Factura:

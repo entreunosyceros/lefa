@@ -197,3 +197,27 @@ def session_scope() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
+
+
+@contextmanager
+def session_scope_immediate() -> Generator[Session, None, None]:
+    """
+    Transacción SQLite con ``BEGIN IMMEDIATE`` (bloqueo de escritura desde el inicio).
+
+    Evita condiciones de carrera al emitir: numeración correlativa y cadena
+    VeriFactu deben leer el último registro y escribir el nuevo en el mismo
+    bloque atómico, incluso con doble clic o workers en segundo plano.
+    """
+    if _SessionLocal is None:
+        get_engine()
+    session = _SessionLocal()
+    try:
+        # Primera operación de la sesión: reserva el lock de escritura en SQLite
+        session.execute(text("BEGIN IMMEDIATE"))
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtGui import QGuiApplication, QIcon, QPixmap
 
 # Raíz del paquete lefa/ y del proyecto (contiene img/, main.py, etc.)
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -43,16 +43,18 @@ def get_logo_path() -> Path:
 
 def get_app_icon() -> QIcon:
     """Icono de la aplicación escalado para ventana y bandeja del sistema."""
-    try:
-        from lefa.services.preferencias_service import PreferenciasService
-
-        logo_path = PreferenciasService.obtener_logotipo()
-    except Exception:
-        logo_path = get_logo_path()
+    # El icono de la aplicación (ventana/bandeja) debe ser estable y NO depender
+    # del logotipo configurable del PDF. Así evitamos que cambiar el logo de factura
+    # afecte a la identidad visual del programa en el sistema.
+    logo_path = get_logo_path()
 
     if not logo_path.is_file():
         logo_path = get_logo_path()
         return QIcon()
+
+    # Evita crashes en contextos sin aplicación Qt inicializada (p. ej. scripts).
+    if QGuiApplication.instance() is None:
+        return QIcon(str(logo_path))
 
     pixmap = QPixmap(str(logo_path))
     if pixmap.isNull():

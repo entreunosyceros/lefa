@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab_nueva, "Nueva Factura")
         self.tabs.addTab(self.tab_presupuesto, "Nuevo Presupuesto")
         self.tabs.addTab(self.tab_listado_pres, "Listado presupuestos")
-        self.tabs.addTab(self.tab_listado, "Listado")
+        self.tabs.addTab(self.tab_listado, "Facturas/Borradores")
         self.tabs.addTab(self.tab_clientes, "Clientes")
         layout.addWidget(self.tabs)
 

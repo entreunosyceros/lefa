@@ -55,7 +55,7 @@ class PresupuestoPDFService:
         validez = (
             presupuesto.validez_hasta.strftime("%d/%m/%Y")
             if presupuesto.validez_hasta
-            else "—"
+            else "-"
         )
 
         pdf.set_font("Helvetica", "B", 10)
@@ -109,7 +109,7 @@ class PresupuestoPDFService:
             pdf.ln(8)
             pdf.set_font("Helvetica", "I", 9)
             pdf.set_text_color(150, 150, 150)
-            pdf.cell(0, 6, "BORRADOR — Sin validez comercial", ln=True, align="C")
+            pdf.cell(0, 6, "BORRADOR - Sin validez comercial", ln=True, align="C")
             pdf.set_text_color(0, 0, 0)
 
         pdf.ln(6)

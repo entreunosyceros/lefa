@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSpinBox,
+    QTextEdit,
     QVBoxLayout,
 )
 
@@ -87,12 +88,20 @@ class PreferenciasDialog(QDialog):
 
         logo_layout = QHBoxLayout()
         self.txt_logotipo = QLineEdit(self._prefs.ruta_logotipo)
-        self.txt_logotipo.setPlaceholderText("Vacío = img/logo.png del proyecto")
+        self.txt_logotipo.setPlaceholderText("Vacío = img/logo.png del proyecto (solo PDF)")
         btn_logo = QPushButton("…")
         btn_logo.clicked.connect(self._elegir_logotipo)
         logo_layout.addWidget(self.txt_logotipo)
         logo_layout.addWidget(btn_logo)
-        form_em.addRow("Logotipo:", logo_layout)
+        form_em.addRow("Logotipo (PDF):", logo_layout)
+
+        self.txt_pie_factura = QTextEdit()
+        self.txt_pie_factura.setPlainText(self._prefs.pie_factura or "")
+        self.txt_pie_factura.setPlaceholderText(
+            "Opcional. Se imprime al final del PDF (puede tener varias líneas)."
+        )
+        self.txt_pie_factura.setFixedHeight(70)
+        form_em.addRow("Pie de factura (PDF):", self.txt_pie_factura)
         layout.addWidget(emisor)
 
         numeracion = QGroupBox("Numeración y series")
@@ -170,6 +179,7 @@ class PreferenciasDialog(QDialog):
             digitos_secuencia=self.spin_digitos.value(),
             dias_vencimiento=self.spin_dias_venc.value(),
             ruta_logotipo=self.txt_logotipo.text().strip(),
+            pie_factura=self.txt_pie_factura.toPlainText().strip(),
             ultimo_cliente_id=self._prefs.ultimo_cliente_id,
         )
         PreferenciasService.guardar(prefs)

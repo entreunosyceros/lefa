@@ -9,10 +9,11 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
 from lefa.config import VERIFACTU_REGISTROS_DIR, ensure_directories
-from lefa.models import Factura
+from lefa.models import EstadoFactura, Factura
 from lefa.services.preferencias_service import PreferenciasService
 from lefa.verifactu.hash import calcular_hash_registro
 
@@ -38,36 +39,70 @@ class RegistroVerifactuService:
     """Crea y almacena registros encadenados en disco y en la BD."""
 
     @staticmethod
-    def _ultimo_hash_global(session, excluir_factura_id: int | None = None) -> str:
+    def _ultima_factura_emitida(
+        session: Session,
+        excluir_factura_id: int | None = None,
+    ) -> Factura | None:
         """
-        Hash del último registro emitido en el sistema (todas las series).
+        Última factura emitida del sistema (todas las series).
 
         Orden cronológico por fecha de emisión y, a igualdad, por ID.
-        Las rectificativas (RECT) enlazan aquí, no en una cadena aparte.
+        Debe ejecutarse dentro de la misma transacción que asigna el nuevo hash.
         """
         consulta = (
             select(Factura)
+            .where(Factura.estado != EstadoFactura.BORRADOR)
             .where(Factura.verifactu_hash.isnot(None))
             .order_by(Factura.fecha_emision.desc(), Factura.id.desc())
         )
         if excluir_factura_id is not None:
             consulta = consulta.where(Factura.id != excluir_factura_id)
 
-        factura = session.scalar(consulta.limit(1))
+        return session.scalar(consulta.limit(1))
+
+    @staticmethod
+    def _ultimo_hash_global(
+        session: Session,
+        excluir_factura_id: int | None = None,
+    ) -> str:
+        """Hash del último registro emitido (cadena única FACT/RECT/…)."""
+        factura = RegistroVerifactuService._ultima_factura_emitida(
+            session, excluir_factura_id=excluir_factura_id
+        )
         return factura.verifactu_hash if factura and factura.verifactu_hash else ""
 
     @staticmethod
-    def crear_registro_emision(session, factura: Factura) -> RegistroVerifactu:
+    def crear_registro_emision(
+        session: Session,
+        factura: Factura,
+        *,
+        persistir_json: bool = False,
+    ) -> RegistroVerifactu:
         """
-        Genera el registro y asigna hashes a la factura (dentro de la transacción).
+        Genera el registro y asigna hashes a la factura.
 
-        Debe llamarse antes del commit de la emisión.
+        Debe llamarse dentro de ``session_scope_immediate()`` junto con la
+        numeración correlativa, sin commit intermedio:
+
+        1. SELECT última factura emitida → ``hash_anterior``
+        2. ``calcular_hash_registro`` para la factura actual
+        3. UPDATE de la factura con ``verifactu_hash`` / ``verifactu_hash_anterior``
+        4. commit de la transacción (en el servicio de emisión)
+
+        El JSON en disco se escribe tras el commit salvo ``persistir_json=True``.
         """
-        prefs = PreferenciasService.cargar()
-        hash_anterior = RegistroVerifactuService._ultimo_hash_global(
+        # Blindaje transaccional: si alguien llama a esta función fuera del flujo
+        # de emisión (sin session_scope_immediate), reservamos el lock de escritura
+        # antes de leer el último hash para evitar carreras.
+        if not session.in_transaction():
+            session.execute(text("BEGIN IMMEDIATE"))
+
+        ultima = RegistroVerifactuService._ultima_factura_emitida(
             session, excluir_factura_id=factura.id
         )
+        hash_anterior = ultima.verifactu_hash if ultima and ultima.verifactu_hash else ""
 
+        prefs = PreferenciasService.cargar()
         importe = round(factura.calcular_total(), 2)
         numero = factura.numero_factura or ""
         fecha = factura.fecha_emision or date.today()
@@ -98,11 +133,13 @@ class RegistroVerifactuService:
         factura.verifactu_hash = hash_registro
         factura.verifactu_hash_anterior = hash_anterior or None
 
-        RegistroVerifactuService._guardar_json(registro)
+        if persistir_json:
+            RegistroVerifactuService.guardar_json(registro)
         return registro
 
     @staticmethod
-    def _guardar_json(registro: RegistroVerifactu) -> Path:
+    def guardar_json(registro: RegistroVerifactu) -> Path:
+        """Persiste el registro en disco (llamar tras commit exitoso de emisión)."""
         ensure_directories()
         VERIFACTU_REGISTROS_DIR.mkdir(parents=True, exist_ok=True)
         nombre = f"{registro.factura_id}_{registro.numero_factura.replace('/', '-')}.json"

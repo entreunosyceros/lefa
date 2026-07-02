@@ -6,21 +6,28 @@ Codificación cromática sutil según el estado del ciclo de vida.
 
 from __future__ import annotations
 
+from pathlib import Path
+from shutil import copy2
+
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QBrush
+from PyQt6.QtGui import QColor, QBrush, QDesktopServices
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QFileDialog,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
+from PyQt6.QtCore import QUrl
 
 from lefa.models import EstadoFactura
 from lefa.services.factura_service import FacturaService
+from lefa.services.pdf_service import PDFService
+from lefa.services.preferencias_service import PreferenciasService
 from lefa.ui.messages import aviso, error, informacion
 from lefa.utils import formato_moneda
 
@@ -59,6 +66,10 @@ class ListadoTab(QWidget):
         toolbar = QHBoxLayout()
         self.btn_refrescar = QPushButton("Refrescar")
         self.btn_refrescar.clicked.connect(self.refrescar)
+        self.btn_guardar_pdf = QPushButton("Guardar PDF…")
+        self.btn_guardar_pdf.clicked.connect(self._guardar_pdf)
+        self.btn_abrir_carpeta = QPushButton("Abrir carpeta")
+        self.btn_abrir_carpeta.clicked.connect(self._abrir_carpeta_pdfs)
         self.btn_duplicar = QPushButton("Duplicar")
         self.btn_duplicar.clicked.connect(self._duplicar_factura)
         self.btn_rectificar = QPushButton("Rectificar")
@@ -66,6 +77,8 @@ class ListadoTab(QWidget):
         self.btn_marcar_cobrada = QPushButton("Marcar como Cobrada")
         self.btn_marcar_cobrada.clicked.connect(self._marcar_cobrada)
         toolbar.addWidget(self.btn_refrescar)
+        toolbar.addWidget(self.btn_guardar_pdf)
+        toolbar.addWidget(self.btn_abrir_carpeta)
         toolbar.addWidget(self.btn_duplicar)
         toolbar.addWidget(self.btn_rectificar)
         toolbar.addWidget(self.btn_marcar_cobrada)
@@ -87,7 +100,7 @@ class ListadoTab(QWidget):
             ]
         )
         self.tabla.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.tabla.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.tabla.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabla.setAlternatingRowColors(False)
         self.tabla.doubleClicked.connect(self._on_doble_clic)
@@ -180,6 +193,19 @@ class ListadoTab(QWidget):
         item = self.tabla.item(fila, COL_ID)
         return int(item.data(Qt.ItemDataRole.UserRole)) if item else None
 
+    def _facturas_seleccionadas_ids(self) -> list[int]:
+        filas = sorted({idx.row() for idx in self.tabla.selectionModel().selectedRows()})
+        ids: list[int] = []
+        for fila in filas:
+            item = self.tabla.item(fila, COL_ID)
+            if item is None:
+                continue
+            val = item.data(Qt.ItemDataRole.UserRole)
+            if val is None:
+                continue
+            ids.append(int(val))
+        return ids
+
     def _on_doble_clic(self) -> None:
         factura_id = self._factura_seleccionada_id()
         if factura_id is None:
@@ -206,6 +232,85 @@ class ListadoTab(QWidget):
             )
         except Exception as exc:
             error(self, "No se pudo duplicar", str(exc))
+
+    def _guardar_pdf(self) -> None:
+        ids = self._facturas_seleccionadas_ids()
+        if not ids:
+            aviso(self, "Selección", "Seleccione una o varias facturas para guardar sus PDFs.")
+            return
+
+        # Caso 1: una sola factura → elegir fichero
+        if len(ids) == 1:
+            factura_id = ids[0]
+            factura = FacturaService.obtener_por_id(factura_id)
+            if factura is None:
+                error(self, "No encontrada", f"Factura {factura_id} no encontrada.")
+                return
+
+            sugerida = PDFService.ruta_pdf_factura(factura).name
+            ruta_destino, _ = QFileDialog.getSaveFileName(
+                self,
+                "Guardar PDF de factura",
+                sugerida,
+                "PDF (*.pdf)",
+            )
+            if not ruta_destino:
+                return
+
+            destino = Path(ruta_destino)
+            if destino.suffix.lower() != ".pdf":
+                destino = destino.with_suffix(".pdf")
+
+            try:
+                origen = PDFService.obtener_o_generar(factura)
+                copy2(origen, destino)
+                informacion(self, "PDF guardado", f"Se guardó el PDF en:\n{destino}")
+                self.estado_mensaje.emit(f"PDF guardado: {destino.name}")
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(destino.parent)))
+            except Exception as exc:
+                error(self, "No se pudo guardar el PDF", str(exc))
+            return
+
+        # Caso 2: varias facturas → elegir carpeta y exportar todas
+        carpeta = QFileDialog.getExistingDirectory(
+            self,
+            "Elegir carpeta destino para PDFs",
+            "",
+        )
+        if not carpeta:
+            return
+        destino_dir = Path(carpeta)
+
+        guardados = 0
+        errores: list[str] = []
+        for factura_id in ids:
+            factura = FacturaService.obtener_por_id(factura_id)
+            if factura is None:
+                errores.append(f"Factura {factura_id}: no encontrada")
+                continue
+            try:
+                origen = PDFService.obtener_o_generar(factura)
+                nombre = PDFService.ruta_pdf_factura(factura).name
+                copy2(origen, destino_dir / nombre)
+                guardados += 1
+            except Exception as exc:
+                errores.append(f"Factura {factura_id}: {exc}")
+
+        if guardados:
+            self.estado_mensaje.emit(f"PDFs guardados: {guardados}")
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(destino_dir)))
+        if errores:
+            error(self, "Algunos PDFs no se pudieron guardar", "\n".join(errores))
+        else:
+            informacion(self, "PDFs guardados", f"Se guardaron {guardados} PDFs en:\n{destino_dir}")
+
+    def _abrir_carpeta_pdfs(self) -> None:
+        try:
+            carpeta = PreferenciasService.obtener_carpeta_pdf()
+            carpeta.mkdir(parents=True, exist_ok=True)
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(carpeta)))
+        except Exception as exc:
+            error(self, "No se pudo abrir la carpeta", str(exc))
 
     def _rectificar_factura(self) -> None:
         factura_id = self._factura_seleccionada_id()
