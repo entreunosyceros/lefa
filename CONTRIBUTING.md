@@ -6,7 +6,7 @@
 
 ## Antes de empezar
 
-- Lee el [README](README.md) para entender el alcance: facturas, presupuestos, VeriFactu, Facturae, clientes y envío por correo.
+- Lee el [README](README.md) y la [documentación en `docs/`](docs/README.md) para entender el alcance: facturas, presupuestos, VeriFactu, Facturae, clientes y envío por correo.
 - Revisa las [issues abiertas](https://github.com/entreunosyceros/lefa/issues) por si alguien ya trabaja en lo mismo.
 - Consulta el [Código de conducta](CODE_OF_CONDUCT.md).
 - Para vulnerabilidades, sigue [SECURITY.md](SECURITY.md) (no abras issues públicas con detalles de explotación).
@@ -16,7 +16,7 @@
 - **Reportar errores** en la interfaz, emisión de facturas, PDF, VeriFactu, Facturae o envío SMTP.
 - **Proponer mejoras** explicando el caso de uso del autónomo y el impacto esperado.
 - **Enviar pull requests** acotados y probados manualmente.
-- **Mejorar documentación** (README, Ayuda rápida en la app, comentarios en código).
+- **Mejorar documentación** (README, guías en `docs/`, Ayuda rápida en la app, comentarios en código).
 - **Probar en Linux y Windows** si tu cambio afecta a la UI o al arranque.
 
 ## Entorno de desarrollo
@@ -73,7 +73,7 @@ La aplicación guarda todo en `~/.lefa/` (en Windows: `%USERPROFILE%\.lefa\`). N
 2. Describe **qué** cambias y **por qué**.
 3. Indica cómo lo has probado (pasos manuales, capturas o comandos).
 4. Si tocas VeriFactu o Facturae, indica el escenario probado (serie, rectificativa, etc.).
-5. Actualiza el README solo si el cambio lo requiere.
+5. Actualiza el README o las guías en `docs/` solo si el cambio lo requiere.
 
 Usa la [plantilla de pull request](.github/pull_request_template.md) al abrir el PR.
 
