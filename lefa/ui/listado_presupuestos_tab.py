@@ -160,8 +160,17 @@ class ListadoPresupuestosTab(QWidget):
     def _actualizar_botones(self) -> None:
         _, factura_id, estado = self._fila_seleccionada()
         convertido = estado == EstadoPresupuesto.CONVERTIDO.value
+        puede_convertir = estado in (
+            EstadoPresupuesto.EMITIDO.value,
+            EstadoPresupuesto.ACEPTADO.value,
+        )
         self.btn_ver_factura.setEnabled(convertido and factura_id is not None)
-        self.btn_convertir.setEnabled(estado is not None and not convertido)
+        self.btn_convertir.setEnabled(puede_convertir)
+        self.btn_convertir.setToolTip(
+            "Crea un borrador de factura con las mismas líneas"
+            if puede_convertir
+            else "Solo presupuestos emitidos o aceptados (no borradores ni rechazados)"
+        )
         self.btn_aceptar.setEnabled(estado == EstadoPresupuesto.EMITIDO.value)
         self.btn_rechazar.setEnabled(
             estado

@@ -38,11 +38,14 @@ COL_DESCRIPCION, COL_CANTIDAD, COL_PRECIO, COL_SUBTOTAL = 0, 1, 2, 3
 class NuevoPresupuestoTab(QWidget):
     presupuesto_guardado = pyqtSignal(int)
     presupuesto_emitido = pyqtSignal(int)
+    convertido_en_factura = pyqtSignal(int)
     estado_mensaje = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._presupuesto_id: int | None = None
+        self._factura_id: int | None = None
+        self._estado: EstadoPresupuesto | None = None
         self._congelado = False
         self._pdf_worker: PresupuestoPDFWorker | None = None
         self._setup_ui()
@@ -122,11 +125,25 @@ class NuevoPresupuestoTab(QWidget):
             "font-weight: bold; border-radius: 4px; }"
         )
         self.btn_emitir.clicked.connect(self._emitir)
+        self.btn_convertir = QPushButton("Convertir en factura")
+        self.btn_convertir.setStyleSheet(
+            "QPushButton { background-color: #43A047; color: white; padding: 8px 16px; "
+            "font-weight: bold; border-radius: 4px; }"
+        )
+        self.btn_convertir.setToolTip(
+            "Crea un borrador de factura con las mismas líneas del presupuesto emitido"
+        )
+        self.btn_convertir.clicked.connect(self._convertir_en_factura)
+        self.btn_ver_factura = QPushButton("Ver factura asociada")
+        self.btn_ver_factura.clicked.connect(self._ver_factura_asociada)
         acciones.addWidget(self.btn_nuevo)
         acciones.addStretch()
         acciones.addWidget(self.btn_guardar)
         acciones.addWidget(self.btn_emitir)
+        acciones.addWidget(self.btn_convertir)
+        acciones.addWidget(self.btn_ver_factura)
         layout.addLayout(acciones)
+        self._actualizar_botones_flujo()
 
         self.lbl_estado = QLabel("")
         layout.addWidget(self.lbl_estado)
@@ -245,11 +262,19 @@ class NuevoPresupuestoTab(QWidget):
     def _commit_tabla(self) -> None:
         idx = self.tabla.currentIndex()
         if idx.isValid():
-            d = self.tabla.itemDelegate(idx)
-            w = self.tabla.indexWidget(idx)
-            if w:
-                d.commitData(w)
-                d.closeEditor(w, QAbstractItemDelegate.EndEditHint.NoHint)
+            delegate = self.tabla.itemDelegateForIndex(idx)
+            editor = self.tabla.indexWidget(idx)
+            if editor is None:
+                editor = self.tabla.focusWidget()
+                if editor is self.tabla:
+                    editor = None
+            if editor is not None:
+                delegate.commitData(editor)
+                delegate.closeEditor(
+                    editor,
+                    QAbstractItemDelegate.EndEditHint.SubmitModelCache,
+                )
+        self.tabla.clearFocus()
         app = QApplication.instance()
         if app:
             app.processEvents()
@@ -277,8 +302,10 @@ class NuevoPresupuestoTab(QWidget):
                 self._validez(),
             )
             self._presupuesto_id = p.id
+            self._estado = EstadoPresupuesto.BORRADOR
             self.lbl_estado.setText(f"Borrador guardado (ID: {p.id})")
             self.presupuesto_guardado.emit(p.id)
+            self._actualizar_botones_flujo()
             self._generar_pdf(p.id)
         except Exception as exc:
             error(self, "Error", str(exc))
@@ -298,14 +325,16 @@ class NuevoPresupuestoTab(QWidget):
             )
             self._presupuesto_id = p.id
             emitido = PresupuestoService.emitir_presupuesto(p.id)
+            self._estado = EstadoPresupuesto.EMITIDO
             self._congelar(emitido.numero_presupuesto or "")
             self.presupuesto_emitido.emit(emitido.id)
             self._generar_pdf(emitido.id)
             informacion(
                 self,
                 "Presupuesto emitido",
-                f"Presupuesto {emitido.numero_presupuesto} listo.\n"
-                "Cuando el cliente lo acepte, conviértalo en factura desde el listado.",
+                f"Presupuesto {emitido.numero_presupuesto} listo.\n\n"
+                "Cuando el cliente lo acepte, pulse «Convertir en factura» aquí "
+                "o en Listado presupuestos.",
             )
         except Exception as exc:
             error(self, "Error", str(exc))
@@ -320,9 +349,44 @@ class NuevoPresupuestoTab(QWidget):
         self.btn_guardar.setEnabled(False)
         self.btn_emitir.setEnabled(False)
         self.lbl_estado.setText(f"Presupuesto {numero} emitido")
+        self._actualizar_botones_flujo()
+
+    def _actualizar_botones_flujo(self) -> None:
+        puede_convertir = self._estado in (
+            EstadoPresupuesto.EMITIDO,
+            EstadoPresupuesto.ACEPTADO,
+        )
+        convertido = self._estado == EstadoPresupuesto.CONVERTIDO
+        self.btn_convertir.setVisible(puede_convertir)
+        self.btn_convertir.setEnabled(puede_convertir and self._presupuesto_id is not None)
+        self.btn_ver_factura.setVisible(convertido and self._factura_id is not None)
+        self.btn_ver_factura.setEnabled(convertido and self._factura_id is not None)
+
+    def _convertir_en_factura(self) -> None:
+        if self._presupuesto_id is None:
+            aviso(self, "Presupuesto", "Guarde o emita un presupuesto antes de convertirlo.")
+            return
+        try:
+            factura_id = PresupuestoService.convertir_a_factura(self._presupuesto_id)
+            self._estado = EstadoPresupuesto.CONVERTIDO
+            self._factura_id = factura_id
+            self._actualizar_botones_flujo()
+            self.presupuesto_emitido.emit(self._presupuesto_id)
+            self.convertido_en_factura.emit(factura_id)
+            self.estado_mensaje.emit("Presupuesto convertido en borrador de factura.")
+        except Exception as exc:
+            error(self, "No se pudo convertir", str(exc))
+
+    def _ver_factura_asociada(self) -> None:
+        if self._factura_id is None:
+            aviso(self, "Sin factura", "Este presupuesto no tiene factura asociada.")
+            return
+        self.convertido_en_factura.emit(self._factura_id)
 
     def reiniciar(self) -> None:
         self._presupuesto_id = None
+        self._factura_id = None
+        self._estado = None
         self._congelado = False
         self.combo_cliente.setEnabled(True)
         self.date_validez.setEnabled(True)
@@ -339,6 +403,7 @@ class NuevoPresupuestoTab(QWidget):
             self._cargar_clientes(prefs.ultimo_cliente_id)
         self.lbl_estado.setText("")
         self._agregar_linea_vacia()
+        self._actualizar_botones_flujo()
 
     def cargar_presupuesto(self, presupuesto_id: int) -> None:
         p = PresupuestoService.obtener_por_id(presupuesto_id)
@@ -347,6 +412,8 @@ class NuevoPresupuestoTab(QWidget):
             return
         self.reiniciar()
         self._presupuesto_id = p.id
+        self._estado = p.estado
+        self._factura_id = p.factura_id
         for i in range(self.combo_cliente.count()):
             if self.combo_cliente.itemData(i) == p.cliente_id:
                 self.combo_cliente.setCurrentIndex(i)
@@ -370,6 +437,8 @@ class NuevoPresupuestoTab(QWidget):
             self._on_celda_cambiada(f, COL_PRECIO)
         if p.estado != EstadoPresupuesto.BORRADOR:
             self._congelar(p.numero_presupuesto or "")
+        else:
+            self._actualizar_botones_flujo()
 
     def _nuevo_cliente(self) -> None:
         dlg = ClienteDialog(self)

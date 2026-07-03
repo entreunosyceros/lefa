@@ -110,6 +110,8 @@ class InicioTab(QWidget):
     ir_presupuesto = pyqtSignal()
     ir_listado_presupuestos = pyqtSignal()
     ir_preferencias = pyqtSignal()
+    ir_servicios = pyqtSignal()
+    ir_plantillas = pyqtSignal()
     ir_documentacion = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
@@ -321,6 +323,18 @@ class InicioTab(QWidget):
         btn_preferencias.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_preferencias.clicked.connect(self.ir_preferencias.emit)
         barra.addWidget(btn_preferencias)
+
+        btn_servicios = QPushButton("Servicios")
+        btn_servicios.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_servicios.setToolTip("Catálogo de servicios con precio e IVA")
+        btn_servicios.clicked.connect(self.ir_servicios.emit)
+        barra.addWidget(btn_servicios)
+
+        btn_plantillas = QPushButton("Plantillas")
+        btn_plantillas.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_plantillas.setToolTip("Plantillas de líneas reutilizables")
+        btn_plantillas.clicked.connect(self.ir_plantillas.emit)
+        barra.addWidget(btn_plantillas)
 
         btn_documentacion = QPushButton("Ayuda rápida")
         btn_documentacion.setCursor(Qt.CursorShape.PointingHandCursor)

@@ -42,6 +42,23 @@ cd LEFA
 python run_app.py
 ```
 
+### Requisitos en Linux (PyQt6)
+
+Desde **Qt 6.5**, el plugin gráfico `xcb` exige la biblioteca del sistema **libxcb-cursor**. Si al arrancar aparece un error del tipo *Could not load the Qt platform plugin "xcb"* o *xcb-cursor0 is needed*, instale el paquete antes de volver a ejecutar:
+
+```bash
+# Debian / Ubuntu / Mint
+sudo apt install libxcb-cursor0
+
+# Fedora
+sudo dnf install xcb-util-cursor
+
+# Arch
+sudo pacman -S xcb-util-cursor
+```
+
+`run_app.py` detecta esta dependencia y muestra estas instrucciones si falta.
+
 ## Instalación manual
 
 ```bash
@@ -110,9 +127,9 @@ LEFA/
 | Pestaña         | Descripción |
 |-----------------|-------------|
 | **Inicio** | Flujo visual lineal: el camino recto para facturar o presupuestar (sin laberinto de ventanas). |
-| **Nueva Factura** | Cliente (se recuerda el último usado), **serie**, **vencimiento**, líneas con plantillas, IVA/IRPF. Botones *Guardar*, *Emitir* y *Enviar por email*. |
-| **Nuevo Presupuesto** | Crear y emitir presupuestos comerciales (sin validez fiscal). |
-| **Listado presupuestos** | *Aceptar*, *Convertir en factura*, *Rechazar*. |
+| **Nueva Factura** | Cliente, serie, vencimiento, líneas con plantillas/servicios, IVA/IRPF. *Guardar*, *Emitir*, *Abrir carpeta PDFs* (tras emitir) y *Enviar por email*. |
+| **Nuevo Presupuesto** | Crear, emitir y **convertir en factura** presupuestos comerciales. |
+| **Listado presupuestos** | *Aceptar*, *Convertir en factura*, *Rechazar*, *Ver factura asociada*. |
 | **Listado**       | Estado, **envío**, **vencimiento**. **Guardar PDF…** (una o varias), **Abrir carpeta**, **Duplicar**, **Rectificar**, *Marcar como Cobrada*. |
 | **Clientes**      | **Buscar** por nombre, NIF o email. Al editar: historial de facturas y total facturado. |
 
@@ -154,7 +171,7 @@ Flujo pensado para el día a día:
 
 1. **Nuevo Presupuesto** — cliente, líneas, *Emitir presupuesto* (PDF en `~/.lefa/presupuestos_pdf/`).
 2. **Aceptar** — en *Listado presupuestos*, cuando el cliente dice que sí.
-3. **Convertir en factura** — en *Listado presupuestos*, pulse el botón homónimo. Se crea un borrador y **se abre automáticamente en *Nueva Factura*** con cliente, líneas e impuestos ya cargados; solo revise y pulse **Emitir**.
+3. **Convertir en factura** — en *Nuevo Presupuesto* (botón verde tras emitir) o en *Listado presupuestos*. Se crea un borrador y **se abre automáticamente en *Nueva Factura*** con cliente, líneas e impuestos ya cargados; solo revise y pulse **Emitir**.
 
 Si el presupuesto está emitido pero aún no marcado como aceptado, *Convertir en factura* lo acepta automáticamente.
 
@@ -201,7 +218,7 @@ Sin pasos extra: *Emitir factura* y listo.
 
 ## Catálogo de servicios
 
-**Herramientas → Catálogo de servicios…** — servicios con descripción, precio e IVA (ej. Desarrollo web 40 €/h al 21 %). En *Nueva Factura*, **Añadir servicio** rellena la línea y el IVA.
+**Herramientas → Catálogo de servicios…** (o **Gestionar servicios…** en *Nueva Factura*) — servicios con descripción, precio e IVA (ej. Desarrollo web 40 €/h al 21 %). Puede crear, editar o eliminar los del catálogo, incluidos los de ejemplo del primer arranque. **Añadir servicio** rellena la línea y el IVA.
 
 ## Plantillas de factura completa
 
@@ -227,7 +244,7 @@ En **Herramientas → Preferencias…** puede configurar valores por defecto que
 
 No son plantillas de PDF, sino **conceptos reutilizables** para facturas recurrentes.
 
-En **Herramientas → Plantillas de líneas…** puede crear, editar o eliminar plantillas (descripción, cantidad y precio). Al facturar, elija una en el desplegable de *Nueva Factura* y pulse **Añadir plantilla**.
+En **Herramientas → Plantillas de líneas…** o con **Gestionar plantillas…** en *Nueva Factura* puede crear, editar o eliminar plantillas (descripción, cantidad y precio), incluidas las de ejemplo. Al facturar, elija una en el desplegable y pulse **Añadir plantilla**.
 
 Al instalar por primera vez se incluyen dos ejemplos:
 
@@ -282,7 +299,7 @@ Sin automatismos: solo información clara para saber qué está pendiente de cob
 1. Configure **preferencias** (IVA, emisor, carpeta PDF) y el **correo SMTP** (menú *Herramientas*).
 2. Cree o seleccione un **cliente** con NIF y, si enviará por email, con dirección de correo.
 3. En **Nueva Factura**, añada líneas (manual, **servicio**, **plantilla de línea** o **plantilla de factura**).
-4. **Guardar como Borrador** o **Emitir Factura** (genera PDF, XML Facturae y registro VeriFactu).
+4. **Guardar como Borrador** o **Emitir Factura** (genera PDF, XML Facturae y registro VeriFactu). Tras emitir, use **Abrir carpeta PDFs** para localizar el archivo.
 5. **Enviar por email** si procede; consulte el **Listado** (envío, vencimiento, cobro).
 
 ### Presupuesto → factura

@@ -73,9 +73,9 @@ def _contenido_html() -> str:
 <ul>
 <li><b>Configurar correo electrónico…</b> — Cuenta SMTP para envío de facturas.</li>
 <li><b>Preferencias…</b> — Impuestos, emisor, IBAN, numeración, series, carpeta PDF, logotipo.</li>
-<li><b>Plantillas de líneas…</b> — Conceptos recurrentes (descripción, cantidad, precio).</li>
+<li><b>Plantillas de líneas…</b> — Conceptos recurrentes (descripción, cantidad, precio). También <b>Gestionar plantillas…</b> en <i>Nueva Factura</i>.</li>
 <li><b>Plantillas de factura…</b> — Facturas completas reutilizables.</li>
-<li><b>Catálogo de servicios…</b> — Servicios con precio e IVA para añadir con un clic.</li>
+<li><b>Catálogo de servicios…</b> — Servicios con precio e IVA. También <b>Gestionar servicios…</b> en <i>Nueva Factura</i>.</li>
 <li><b>Exportar registros VeriFactu…</b> — ZIP con la cadena de registros para auditoría.</li>
 </ul>
 

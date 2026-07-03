@@ -113,6 +113,29 @@ def install_dependencies(venv_python: Path) -> None:
     print("Dependencias instaladas correctamente.")
 
 
+def check_linux_qt_deps() -> str | None:
+    """
+    PyQt6 (Qt >= 6.5) necesita libxcb-cursor en Linux para el plugin xcb.
+
+    Sin ella la aplicación aborta con un mensaje críptico del plugin de plataforma.
+    """
+    if sys.platform != "linux":
+        return None
+
+    import ctypes.util
+
+    if ctypes.util.find_library("xcb-cursor") is not None:
+        return None
+
+    return (
+        "Falta la biblioteca del sistema libxcb-cursor (requerida por PyQt6 desde Qt 6.5).\n\n"
+        "Instálela y vuelva a ejecutar LEFA:\n"
+        "  Debian / Ubuntu / Mint:  sudo apt install libxcb-cursor0\n"
+        "  Fedora:                  sudo dnf install xcb-util-cursor\n"
+        "  Arch:                    sudo pacman -S xcb-util-cursor\n"
+    )
+
+
 def launch_app() -> int:
     """
     Importa y arranca la interfaz gráfica de LEFA.
@@ -121,6 +144,11 @@ def launch_app() -> int:
     de modo que PyQt6 y el resto de paquetes estén disponibles.
     """
     from main import main as lefa_main
+
+    aviso_qt = check_linux_qt_deps()
+    if aviso_qt:
+        print(aviso_qt, file=sys.stderr)
+        return 1
 
     return lefa_main()
 

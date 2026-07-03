@@ -6,8 +6,8 @@ Prioriza velocidad: totales recalculados en tiempo real sin bloquear la UI.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, QDate, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QDate, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices, QFont
 from PyQt6.QtWidgets import (
     QApplication,
     QAbstractItemDelegate,
@@ -35,6 +35,8 @@ from lefa.services.preferencias_service import PreferenciasService
 from lefa.services.servicio_service import ServicioService
 from lefa.ui.cliente_dialog import ClienteDialog
 from lefa.ui.messages import aviso, error, informacion
+from lefa.ui.plantillas_dialog import PlantillasDialog
+from lefa.ui.servicios_dialog import ServiciosDialog
 from lefa.ui.smtp_config_dialog import SmtpConfigDialog
 from lefa.utils import formato_moneda
 from lefa.workers.pdf_worker import PDFWorker
@@ -147,18 +149,30 @@ class NuevaFacturaTab(QWidget):
         self.combo_servicio.setMinimumWidth(180)
         self.btn_aplicar_servicio = QPushButton("Añadir servicio")
         self.btn_aplicar_servicio.clicked.connect(self._aplicar_servicio)
+        self.btn_gestionar_servicios = QPushButton("Gestionar servicios…")
+        self.btn_gestionar_servicios.setToolTip(
+            "Crear, editar o eliminar servicios del catálogo"
+        )
+        self.btn_gestionar_servicios.clicked.connect(self._gestionar_servicios)
         self.combo_plantilla = QComboBox()
         self.combo_plantilla.setMinimumWidth(220)
         self.btn_aplicar_plantilla = QPushButton("Añadir plantilla")
         self.btn_aplicar_plantilla.clicked.connect(self._aplicar_plantilla)
+        self.btn_gestionar_plantillas = QPushButton("Gestionar plantillas…")
+        self.btn_gestionar_plantillas.setToolTip(
+            "Crear, editar o eliminar plantillas de líneas"
+        )
+        self.btn_gestionar_plantillas.clicked.connect(self._gestionar_plantillas)
         self.btn_agregar_linea = QPushButton("+ Añadir línea")
         self.btn_agregar_linea.clicked.connect(self._agregar_linea_vacia)
         self.btn_eliminar_linea = QPushButton("− Eliminar línea")
         self.btn_eliminar_linea.clicked.connect(self._eliminar_linea_seleccionada)
         btn_lineas.addWidget(self.combo_servicio)
         btn_lineas.addWidget(self.btn_aplicar_servicio)
+        btn_lineas.addWidget(self.btn_gestionar_servicios)
         btn_lineas.addWidget(self.combo_plantilla)
         btn_lineas.addWidget(self.btn_aplicar_plantilla)
+        btn_lineas.addWidget(self.btn_gestionar_plantillas)
         btn_lineas.addWidget(self.btn_agregar_linea)
         btn_lineas.addWidget(self.btn_eliminar_linea)
         btn_lineas.addStretch()
@@ -212,10 +226,18 @@ class NuevaFacturaTab(QWidget):
         self.btn_enviar_email.clicked.connect(self._enviar_email)
         self.btn_enviar_email.setEnabled(False)
 
+        self.btn_abrir_carpeta = QPushButton("Abrir carpeta PDFs")
+        self.btn_abrir_carpeta.setToolTip(
+            "Abre la carpeta donde LEFA guarda los PDF de facturas emitidas"
+        )
+        self.btn_abrir_carpeta.clicked.connect(self._abrir_carpeta_pdfs)
+        self.btn_abrir_carpeta.setEnabled(False)
+
         acciones.addWidget(self.btn_nueva)
         acciones.addStretch()
         acciones.addWidget(self.btn_guardar)
         acciones.addWidget(self.btn_emitir)
+        acciones.addWidget(self.btn_abrir_carpeta)
         acciones.addWidget(self.btn_enviar_email)
 
         layout.addLayout(acciones)
@@ -250,12 +272,17 @@ class NuevaFacturaTab(QWidget):
 
     def _cargar_servicios(self) -> None:
         self.combo_servicio.clear()
-        self.combo_servicio.addItem("— Servicio —", None)
+        self.combo_servicio.addItem("- Servicio -", None)
         for servicio in ServicioService.listar_todos():
             self.combo_servicio.addItem(
                 f"{servicio.nombre} ({servicio.precio_unitario:.2f} €)",
                 servicio.id,
             )
+
+    def _gestionar_servicios(self) -> None:
+        dlg = ServiciosDialog(self)
+        dlg.servicios_actualizados.connect(self._cargar_servicios)
+        dlg.exec()
 
     def _aplicar_servicio(self) -> None:
         if self._congelada:
@@ -354,9 +381,14 @@ class NuevaFacturaTab(QWidget):
 
     def _cargar_plantillas(self) -> None:
         self.combo_plantilla.clear()
-        self.combo_plantilla.addItem("— Seleccionar plantilla —", None)
+        self.combo_plantilla.addItem("- Seleccionar plantilla -", None)
         for plantilla in PlantillaService.listar_todas():
             self.combo_plantilla.addItem(plantilla.nombre, plantilla.id)
+
+    def _gestionar_plantillas(self) -> None:
+        dlg = PlantillasDialog(self)
+        dlg.plantillas_actualizadas.connect(self._cargar_plantillas)
+        dlg.exec()
 
     def _aplicar_plantilla(self) -> None:
         if self._congelada:
@@ -400,13 +432,19 @@ class NuevaFacturaTab(QWidget):
         no haber volcado aún el texto al QTableWidgetItem.
         """
         index = self.tabla_lineas.currentIndex()
-        if not index.isValid():
-            return
-        delegate = self.tabla_lineas.itemDelegate(index)
-        editor = self.tabla_lineas.indexWidget(index)
-        if editor is not None:
-            delegate.commitData(editor)
-            delegate.closeEditor(editor, QAbstractItemDelegate.EndEditHint.NoHint)
+        if index.isValid():
+            delegate = self.tabla_lineas.itemDelegateForIndex(index)
+            editor = self.tabla_lineas.indexWidget(index)
+            if editor is None:
+                editor = self.tabla_lineas.focusWidget()
+                if editor is self.tabla_lineas:
+                    editor = None
+            if editor is not None:
+                delegate.commitData(editor)
+                delegate.closeEditor(
+                    editor,
+                    QAbstractItemDelegate.EndEditHint.SubmitModelCache,
+                )
         self.tabla_lineas.clearFocus()
         app = QApplication.instance()
         if app is not None:
@@ -607,13 +645,20 @@ class NuevaFacturaTab(QWidget):
         self.combo_iva.setEnabled(False)
         self.combo_irpf.setEnabled(False)
         self.tabla_lineas.setEnabled(False)
+        self.combo_servicio.setEnabled(False)
+        self.btn_aplicar_servicio.setEnabled(False)
+        self.btn_gestionar_servicios.setEnabled(False)
+        self.combo_plantilla.setEnabled(False)
+        self.btn_aplicar_plantilla.setEnabled(False)
+        self.btn_gestionar_plantillas.setEnabled(False)
         self.btn_agregar_linea.setEnabled(False)
         self.btn_eliminar_linea.setEnabled(False)
         self.btn_guardar.setEnabled(False)
         self.btn_emitir.setEnabled(False)
+        self.btn_abrir_carpeta.setEnabled(True)
         self.btn_enviar_email.setEnabled(True)
         self.lbl_estado_form.setText(
-            f"Factura {numero_factura} emitida — formulario bloqueado"
+            f"Factura {numero_factura} emitida - formulario bloqueado"
         )
 
     def reiniciar_formulario(self) -> None:
@@ -628,10 +673,17 @@ class NuevaFacturaTab(QWidget):
         self.aplicar_preferencias()
         self.tabla_lineas.setEnabled(True)
         self.tabla_lineas.setRowCount(0)
+        self.combo_servicio.setEnabled(True)
+        self.btn_aplicar_servicio.setEnabled(True)
+        self.btn_gestionar_servicios.setEnabled(True)
+        self.combo_plantilla.setEnabled(True)
+        self.btn_aplicar_plantilla.setEnabled(True)
+        self.btn_gestionar_plantillas.setEnabled(True)
         self.btn_agregar_linea.setEnabled(True)
         self.btn_eliminar_linea.setEnabled(True)
         self.btn_guardar.setEnabled(True)
         self.btn_emitir.setEnabled(True)
+        self.btn_abrir_carpeta.setEnabled(False)
         self.btn_enviar_email.setEnabled(False)
         self.lbl_estado_form.setText("")
         self._aplicar_vencimiento_por_defecto()
@@ -729,6 +781,14 @@ class NuevaFacturaTab(QWidget):
 
     def _on_pdf_error(self, mensaje: str) -> None:
         self.estado_mensaje.emit(f"Error PDF: {mensaje}")
+
+    def _abrir_carpeta_pdfs(self) -> None:
+        try:
+            carpeta = PreferenciasService.obtener_carpeta_pdf()
+            carpeta.mkdir(parents=True, exist_ok=True)
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(carpeta)))
+        except Exception as exc:
+            error(self, "No se pudo abrir la carpeta", str(exc))
 
     def _enviar_email(self) -> None:
         if self._factura_id is None:
