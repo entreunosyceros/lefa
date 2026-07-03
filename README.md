@@ -17,7 +17,7 @@ Al funcionar completamente en local, no requiere suscripciones mensuales, servic
 
 > **⚠ Estado del proyecto**
 >
-> LEFA se encuentra actualmente en fase de desarrollo y pruebas. Aunque muchas funcionalidades ya están implementadas, todavía no se recomienda su uso en entornos de producción ni para la gestión de la facturación real de un negocio.
+> LEFA se encuentra en **fase beta** de desarrollo y pruebas. Implementa los requisitos técnicos de encadenamiento y generación de registros exigidos por la normativa de sistemas de facturación en España (SIF / VeriFactu): hash encadenado, QR tributario y leyenda legal en el PDF. El **uso para facturación real corre bajo responsabilidad del usuario** hasta que se libere la versión **1.0** estable.
 >
 > LEFA no pretende competir con un ERP. Pretende evitar que un pequeño autónomo necesite uno para realizar su trabajo diario.
 
@@ -185,7 +185,9 @@ Al convertir, LEFA guarda en la base de datos el `factura_id` del borrador cread
 
 En el **Listado**, seleccione una factura emitida o cobrada y pulse **Rectificar**. Se crea un borrador en serie **RECT**, se **abre en *Nueva Factura*** y queda vinculado a la original. Ajuste las líneas (use **importes negativos** si debe devolver dinero) y emita. El PDF indica qué factura rectifica.
 
-## VeriFactu (preparado para España)
+## VeriFactu y SIF (España)
+
+La normativa de sistemas de facturación (Reglamento del SIF y VeriFactu) es de **obligado cumplimiento** para el software que emite facturas en España. LEFA genera en local los elementos técnicos del registro: cadena de hashes, persistencia del registro y código QR con leyenda legal.
 
 Arquitectura en `lefa/verifactu/`:
 
@@ -196,9 +198,16 @@ Arquitectura en `lefa/verifactu/`:
 | `qr.py` | URL de cotejo AEAT, leyenda legal del QR y generación del PNG (35 mm en PDF) |
 | `export.py` | Exportación ZIP de registros |
 
-Al **emitir**, LEFA genera el registro encadenado, guarda el hash en la factura e imprime el **QR tributario** en el PDF (35×35 mm) con la leyenda obligatoria: *SISTEMA INFORMÁTICO NO VERIFICADO* (modalidad actual) o *VERI*FACTU* cuando se active VeriFactu. El módulo `qr.py` construye la URL con el **formato oficial de la AEAT** (parámetros `nif`, `numserie`, fecha en `DD-MM-AAAA`, importe con punto decimal y, en VeriFactu, `hash` con la huella SHA-256 completa en minúsculas).
+Al **emitir**, LEFA genera el registro encadenado, guarda el hash en la factura e imprime el **QR tributario** en el PDF (35×35 mm) con la leyenda legal vigente:
 
-**Cadena de hashes:** el hilo VeriFactu es **único e ininterrumpido** para todo el programa. Una factura rectificativa (serie `RECT`) enlaza con la **última factura emitida cronológicamente** en el sistema (p. ej. una `FACT`), no con la rectificativa anterior. El orden se determina por fecha de emisión e ID, sin filtrar por serie. La emisión usa una transacción SQLite `BEGIN IMMEDIATE` que asigna número correlativo y hash encadenado en el mismo commit.
+- *SISTEMA INFORMÁTICO NO VERIFICADO* — modalidad **No-VeriFactu** (cotejo sin remisión automática a la AEAT; configuración actual en `lefa/config.py`).
+- *VERI*FACTU* — cuando se active en configuración la modalidad con envío/remisión VeriFactu.
+
+El módulo `qr.py` construye la URL con el **formato oficial de la AEAT** (`nif`, `numserie`, fecha `DD-MM-AAAA`, importe con punto decimal y, en VeriFactu, `hash` SHA-256 completo en minúsculas).
+
+**Cadena de hashes:** el hilo VeriFactu es **único e ininterrumpido** para todo el programa (independiente de la serie `FACT`, `WEB`, `RECT`, etc.). Una rectificativa enlaza con la **última factura emitida cronológicamente**, no con la rectificativa anterior. El orden se determina por fecha de emisión e ID.
+
+**Concurrencia en SQLite:** la emisión usa `session_scope_immediate()` con **`BEGIN IMMEDIATE`**: reserva el bloqueo de escritura de la base de datos y asigna número correlativo y hash en el **mismo commit**. En SQLite, `with_for_update()` de SQLAlchemy **no bloquea filas** (se ignora); `BEGIN IMMEDIATE` es el mecanismo correcto para evitar que dos emisiones simultáneas lean el mismo último hash.
 
 **Herramientas → Exportar registros VeriFactu…** empaqueta todos los registros para auditoría.
 
@@ -237,7 +246,7 @@ En **Herramientas → Preferencias…** puede configurar valores por defecto que
 | Empresa emisora | Nombre, NIF, dirección, teléfono, email, **IBAN** (necesario para Facturae/FACe) |
 | Forma de pago Facturae | Código por defecto (`04` = transferencia bancaria) |
 | Logotipo (PDF) | Aparece en el PDF (no cambia el icono de la aplicación) |
-| Formato de número | `FACT-2026-0001`, `2026-001`, `0001/2026`, `WEB-001`, etc. |
+| Formato de número | `FACT-2026-0001`, `2026-001`, `0001/2026`, `WEB-001`, etc. **No cambiar a mitad de año fiscal** (riesgo de duplicados o saltos; el hash VeriFactu es global e independiente de la serie) |
 | Series de facturación | Varias series con correlativo independiente (`FACT, WEB, MANT`) |
 | Carpeta PDFs | Dónde se guardan los PDF generados |
 | Pie de factura (PDF) | Texto opcional al final de la factura (varias líneas) |

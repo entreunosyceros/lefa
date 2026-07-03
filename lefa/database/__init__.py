@@ -2,6 +2,10 @@
 Gestión de sesiones y motor SQLite.
 
 Centraliza la creación del engine y el ciclo de vida de la sesión ORM.
+
+Concurrencia en emisión: SQLite no soporta bloqueo por fila; ``with_for_update()``
+de SQLAlchemy se ignora silenciosamente. Para numeración correlativa y cadena
+VeriFactu use ``session_scope_immediate()`` (``BEGIN IMMEDIATE``), no locks ORM.
 """
 
 from collections.abc import Generator
@@ -16,6 +20,16 @@ from lefa.models import Base, Cliente, PlantillaLinea, Servicio
 # Motor SQLite con soporte multi-hilo para workers en segundo plano
 _engine = None
 _SessionLocal = None
+
+
+def begin_immediate(session: Session) -> None:
+    """
+    Reserva el bloqueo de escritura de SQLite antes de leer correlativos o hashes.
+
+    Debe ser la primera operación de la sesión en flujos de emisión concurrente.
+    """
+    if not session.in_transaction():
+        session.execute(text("BEGIN IMMEDIATE"))
 
 
 def get_engine():
@@ -212,8 +226,7 @@ def session_scope_immediate() -> Generator[Session, None, None]:
         get_engine()
     session = _SessionLocal()
     try:
-        # Primera operación de la sesión: reserva el lock de escritura en SQLite
-        session.execute(text("BEGIN IMMEDIATE"))
+        begin_immediate(session)
         yield session
         session.commit()
     except Exception:

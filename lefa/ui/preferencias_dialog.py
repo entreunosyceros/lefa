@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -112,7 +113,18 @@ class PreferenciasDialog(QDialog):
         idx = self.combo_formato.findData(self._prefs.formato_numeracion)
         if idx >= 0:
             self.combo_formato.setCurrentIndex(idx)
+        self.combo_formato.setToolTip(
+            "No se recomienda cambiar el formato a mitad de un año fiscal: "
+            "puede provocar duplicados o saltos en la numeración."
+        )
         form_num.addRow("Formato de número:", self.combo_formato)
+
+        aviso_formato = QLabel(
+            "No se recomienda cambiar el formato de numeración a mitad de un año fiscal."
+        )
+        aviso_formato.setWordWrap(True)
+        aviso_formato.setStyleSheet("color: #795548; font-size: 11px;")
+        form_num.addRow("", aviso_formato)
 
         self.spin_digitos = QSpinBox()
         self.spin_digitos.setRange(2, 6)

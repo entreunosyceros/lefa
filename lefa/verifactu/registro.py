@@ -9,10 +9,11 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from lefa.config import VERIFACTU_REGISTROS_DIR, ensure_directories
+from lefa.database import begin_immediate
 from lefa.models import EstadoFactura, Factura
 from lefa.services.preferencias_service import PreferenciasService
 from lefa.verifactu.hash import calcular_hash_registro
@@ -91,11 +92,8 @@ class RegistroVerifactuService:
 
         El JSON en disco se escribe tras el commit salvo ``persistir_json=True``.
         """
-        # Blindaje transaccional: si alguien llama a esta función fuera del flujo
-        # de emisión (sin session_scope_immediate), reservamos el lock de escritura
-        # antes de leer el último hash para evitar carreras.
-        if not session.in_transaction():
-            session.execute(text("BEGIN IMMEDIATE"))
+        # Blindaje transaccional (ver ``lefa.database.begin_immediate``).
+        begin_immediate(session)
 
         ultima = RegistroVerifactuService._ultima_factura_emitida(
             session, excluir_factura_id=factura.id
