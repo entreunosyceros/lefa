@@ -1,9 +1,11 @@
 # LEFA — Local & Eficiente Facturación para Autónomos
 <p align="center">
 <img width="1200" height="655" alt="logo" src="https://github.com/user-attachments/assets/d3e52c55-7abb-4cc4-bb1f-cf7640292f74" />
+<br><br>
+<a href="https://mintlify.wiki/entreunosyceros/lefa"><img src="https://img.shields.io/badge/Documentación-lefa-0891B2?style=for-the-badge&logo=readthedocs&logoColor=white" alt="Documentación"></a>
 </p>
 
-Aplicación de escritorio para facturación de autónomos con control total local. Compatible con **Linux** y **Windows**.
+Aplicación de escritorio para facturación de autónomos con control total local. Compatible con **Linux** y **Windows**. Guía completa en la [documentación oficial](https://mintlify.wiki/entreunosyceros/lefa).
 
 ## ¿Por qué?
 
